@@ -23,6 +23,7 @@ class LowWaveManager:
         self.mixer = LowSoundMixer(broadcaster=self.webwave.broadcast_chunk)
         self.music_track = ClassAudioTrack("music_track")
         self.voice_track = ClassAudioTrack("voice_track")
+        self.sfx_track = ClassAudioTrack("sfx")
 
         self.mixer.add_track(self.music_track)
         self.mixer.add_track(self.voice_track)
@@ -93,27 +94,28 @@ class LowWaveManager:
         else:
             prompt = "Привет в эфире LowWave Radio! Скоро будет крутой трек."
 
+        sfx_pattern = re.compile(r"\[sfx:([a-zA-Z0-9_]+)\]", re.IGNORECASE)
+
         async for sentence in self.llm.generate_sentences(prompt): # type: ignore
-            tokens = re.split(r'(\[sfx:[a-zA-Z0-9_]+\])', sentence)
+            sentence_str = sentence.strip()
+            if not sentence_str:
+                continue
 
-            for token in tokens:
-                token_str = token.strip()
-                if not token_str:
-                    continue
-
-                if token_str.startswith("[sfx:") and token_str.endswith("]"):
-                    sfx_name = token_str[5:-1]
-                    if sfx_name in self.sfx_cache:
-                        self.voice_track.append_pcm_bytes(self.sfx_cache[sfx_name])
-                    else:
-                        print(f"[DJ VALERA] Пропущен незакэшированный SFX: {sfx_name}")
+            for match in sfx_pattern.finditer(sentence_str):
+                sfx_name = match.group(1).lower()
+                if sfx_name in self.sfx_cache:
+                    self.sfx_track.append_pcm_bytes(self.sfx_cache[sfx_name])
                 else:
-                    clean_text = re.sub(r'["«»\[\]]', '', token_str).strip()
-                    
-                    if clean_text:
-                        pcm_bytes = await self.tts.text_to_pcm_bytes(clean_text)
-                        if pcm_bytes:
-                            self.voice_track.append_pcm_bytes(pcm_bytes)
+                    print(f"[DJ VALERA] Пропущен незакэшированный SFX: {sfx_name}")
+
+            clean_text = sfx_pattern.sub("", sentence_str)
+
+            clean_text = re.sub(r'["«»\[\]]', "", clean_text).strip()
+
+            if clean_text:
+                pcm_bytes = await self.tts.text_to_pcm_bytes(clean_text)
+                if pcm_bytes:
+                    self.voice_track.append_pcm_bytes(pcm_bytes)
 
     def run(self) -> None:
         server_thread = threading.Thread(

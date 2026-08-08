@@ -4,6 +4,7 @@ from typing import List, Dict, Any, Optional, TYPE_CHECKING
 
 import os
 import random
+import time
 import numpy as np
 
 if TYPE_CHECKING:
@@ -25,6 +26,8 @@ class LowWaveControl:
         self.next_track_info: Optional[Dict[str, Any]] = None
         self.next_pcm_data: Optional[np.ndarray] = None
         self.dj_comment: str = "Радиостанция инициализирована."
+
+        self.track_start_time: float = time.time()
 
     async def add_to_queue(self, video_id: str):
         """Добавить трек в очередь заказа"""
@@ -74,12 +77,20 @@ class LowWaveControl:
         self.current_track_info = self.next_track_info.copy() # type: ignore
         self.next_track_info = None
 
+        self.track_start_time = time.time()
+
         await self.manager.webwave.broadcast_status()
 
     def get_playlist(self) -> List[str]:
         return self.playlist_queue
 
     def get_status(self) -> Dict[str, Any]:
+        elapsed = (
+            max(0.0, round(time.time() - self.track_start_time, 2))
+            if self.track_start_time
+            else 0.0
+        )
+
         return {
             "track": self.get_track_info(),
             "next_track": self.get_next_track_info(),
@@ -87,6 +98,7 @@ class LowWaveControl:
             "queue_length": len(self.playlist_queue),
             "telemetry": {"weather": "21° СОЛНЦЕ"},
             # "llm_message": self.manager.llm.message,
+            "elapsed": elapsed,
             "lyrics": self.current_track_info.get("lyrics", ["Текст отсутствует"])
         }
 
@@ -104,3 +116,4 @@ class LowWaveControl:
         if not query:
             return []
         return await asyncio.to_thread(self.manager.player_service.search_tracks, query)
+

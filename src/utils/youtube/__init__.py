@@ -72,28 +72,56 @@ class LowWavePlayerService:
             if not lyrics_id:
                 return [{"time": 0, "text": "Текст песни не найден"}]
 
-            lyrics_data = self.yt.get_lyrics(lyrics_id, timestamps=True)  # type: ignore
+            lyrics_data = self.yt.get_lyrics(lyrics_id, timestamps=True) # type: ignore
             raw_lyrics = lyrics_data.get("lyrics", "")
 
             if isinstance(raw_lyrics, list):
                 result = []
                 for item in raw_lyrics:
-                    ms = item.get("start_time") or item.get("timestamp") or 0
-                    text = item.get("text", "").strip()
+                    if isinstance(item, dict):
+                        text = item.get("text") or item.get("line") or ""
+                        ms = (
+                            item.get("start_time")
+                            or item.get("start")
+                            or item.get("timestamp")
+                            or 0
+                        )
+                    else:
+                        text = getattr(item, "text", getattr(item, "line", ""))
+                        ms = getattr(
+                            item,
+                            "start_time",
+                            getattr(item, "start", getattr(item, "timestamp", 0)),
+                        )
+
+                    text = str(text).strip()
                     if text:
-                        result.append({"time": float(ms) / 1000.0, "text": text})
+                        result.append(
+                            {
+                                "time": round(float(ms) / 1000.0, 2),
+                                "text": text,
+                            }
+                        )
+
                 return result if result else [{"time": 0, "text": "Текст песни пуст"}]
 
             if isinstance(raw_lyrics, str):
-                lines = [line.strip() for line in raw_lyrics.split("\n") if line.strip()]
-                return [{"time": i * 4.0, "text": line} for i, line in enumerate(lines)]
+                lines = [
+                    line.strip()
+                    for line in raw_lyrics.split("\n")
+                    if line.strip()
+                ]
+                return [
+                    {"time": round(i * 4.0, 2), "text": line}
+                    for i, line in enumerate(lines)
+                ]
 
             return [{"time": 0, "text": "Неизвестный формат текста"}]
 
         except Exception as e:
             print(f"[PlayerService] Ошибка получения текста: {e}")
             return [{"time": 0, "text": "Не удалось загрузить текст"}]
-        
+            
 
     def get_playlist_tracks(self, playlist_id: str, limit: int = 20):
         """

@@ -2,6 +2,7 @@ import asyncio
 import struct
 import uvicorn
 import json
+import time
 import os
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse, HTMLResponse
@@ -40,7 +41,6 @@ class WebWave:
         self.active_websockets: list[WebSocket] = []
         self._register_routes()
 
-    
     def broadcast_chunk(self, chunk: bytes):
         """Рассылка байтов всем подключенным слушателям."""
         for queue in list(self.listeners):

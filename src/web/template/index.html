@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>LowWave 📻 | Radio</title>
     <style>
         :root {
@@ -466,6 +466,105 @@
                 right: 0;
             }
         }
+        @media (max-width: 768px) {
+            body {
+                padding: 0;
+                align-items: flex-start;
+            }
+
+            .apple-container {
+                grid-template-columns: 1fr;
+                gap: 20px;
+                border-radius: 0;
+                min-height: 100vh;
+                padding: 20px 16px 140px 16px; 
+                border: none;
+                box-shadow: none;
+            }
+
+            .track-hero {
+                flex-direction: column;
+                text-align: center;
+                gap: 16px;
+            }
+
+            .cover-art {
+                width: 180px;
+                height: 180px;
+                border-radius: 20px;
+            }
+
+            .track-info h1 {
+                font-size: 24px;
+            }
+
+            .track-info p {
+                font-size: 16px;
+            }
+
+            .lyrics-section {
+                height: 200px;
+                padding-left: 0;
+            }
+
+            .lyric-row {
+                font-size: 16px;
+            }
+
+            .lyric-row.active {
+                font-size: 19px;
+            }
+
+            .bottom-controls {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: rgba(253, 248, 242, 0.92);
+                backdrop-filter: blur(25px);
+                -webkit-backdrop-filter: blur(25px);
+                padding: 12px 16px calc(12px + env(safe-area-inset-bottom)) 16px;
+                border-top: 1px solid var(--card-border);
+                margin-top: 0;
+                z-index: 1000;
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .left-controls {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .btn-apple {
+                padding: 12px 20px;
+                font-size: 13px;
+            }
+
+            .volume-control {
+                padding: 6px 12px;
+            }
+
+            .volume-slider {
+                width: 70px;
+            }
+
+            .search-container {
+                width: 100%;
+            }
+
+            .input-apple {
+                width: 100%;
+                font-size: 13px;
+                padding: 10px 14px;
+            }
+
+            .search-results-dropdown {
+                width: 100%;
+                bottom: calc(100% + 8px);
+                max-height: 220px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -541,6 +640,8 @@
         let isPlaying = false;
         let searchTimeout = null;
         let currentLyrics = [];
+        let currentTrackId = null;
+        let currentElapsed = 0;
 
         const player = document.getElementById('radio-player');
         const playBtn = document.getElementById('play-btn');
@@ -553,6 +654,12 @@
             if (val == 0) volIcon.innerText = '🔇';
             else if (val < 0.5) volIcon.innerText = '🔉';
             else volIcon.innerText = '🔊';
+        }
+
+        function resetLyricsScroll() {
+            const lyricsBox = document.getElementById('lyrics-container');
+            lyricsBox.scrollTop = 0;
+            updateActiveLyric(0, true); 
         }
 
         function adaptThemeFromImage(imgElement) {
@@ -645,15 +752,15 @@
             lyricsBox.innerHTML = lyrics.map((item, idx) => {
                 const text = typeof item === 'string' ? item : item.text;
                 const time = typeof item === 'object' && item.time !== undefined ? item.time : idx * 4;
-                return `<div class="lyric-row ${idx === 0 ? 'active' : ''}" data-time="${time}" id="lyric-line-${idx}">${text}</div>`;
+                return `<div class="lyric-row" data-time="${time}" id="lyric-line-${idx}">${text}</div>`;
             }).join('');
         }
 
-        function updateActiveLyric(index) {
+        function updateActiveLyric(index, force = false) {
             const lines = document.querySelectorAll('.lyric-row');
             const targetLine = document.getElementById(`lyric-line-${index}`);
 
-            if (targetLine && !targetLine.classList.contains('active')) {
+            if (targetLine && (!targetLine.classList.contains('active') || force)) {
                 lines.forEach(row => row.classList.remove('active'));
                 targetLine.classList.add('active');
                 targetLine.scrollIntoView({
@@ -661,6 +768,21 @@
                     block: 'center'
                 });
             }
+        }
+
+        function syncLyricsWithElapsed(elapsedTime) {
+            if (!currentLyrics.length) return;
+
+            let activeIndex = 0;
+            for (let i = 0; i < currentLyrics.length; i++) {
+                const itemTime = typeof currentLyrics[i] === 'object' ? currentLyrics[i].time : i * 4;
+                if (elapsedTime >= itemTime) {
+                    activeIndex = i;
+                } else {
+                    break;
+                }
+            }
+            updateActiveLyric(activeIndex);
         }
 
         function connectWebSocket() {
@@ -671,7 +793,21 @@
                 try {
                     const data = JSON.parse(event.data);
                     
+                    if (data.elapsed !== undefined) {
+                        currentElapsed = data.elapsed;
+                    }
+
                     if (data.track) {
+                        const newTrackId = data.track.video_id || data.track.id || `${data.track.artist}-${data.track.title}`;
+                        
+                        if (currentTrackId !== newTrackId) {
+                            currentTrackId = newTrackId;
+                            currentElapsed = data.elapsed || 0;
+                            currentLyrics = [];
+                            renderLyrics([{ text: "Загрузка текста...", time: 0 }]);
+                            resetLyricsScroll();
+                        }
+
                         document.getElementById('track-title').innerText = data.track.title || "Без названия";
                         document.getElementById('artist-name').innerText = data.track.artist || "Исполнитель";
                         if (data.track.cover_url) {
@@ -689,6 +825,7 @@
                     if (data.lyrics && Array.isArray(data.lyrics)) {
                         currentLyrics = data.lyrics;
                         renderLyrics(currentLyrics);
+                        syncLyricsWithElapsed(currentElapsed);
                     }
 
                     if (data.search_results && Array.isArray(data.search_results)) {
@@ -727,24 +864,13 @@
 
             ws.onclose = () => setTimeout(connectWebSocket, 3000);
         }
-
-        player.addEventListener('timeupdate', () => {
-            if (!currentLyrics.length) return;
-
-            const currentTime = player.currentTime;
-            let activeIndex = 0;
-
-            for (let i = 0; i < currentLyrics.length; i++) {
-                const itemTime = typeof currentLyrics[i] === 'object' ? currentLyrics[i].time : i * 4;
-                if (currentTime >= itemTime) {
-                    activeIndex = i;
-                } else {
-                    break;
-                }
+        setInterval(() => {
+            // isPlaying &&
+            if (currentLyrics.length) {
+                currentElapsed += 0.5;
+                syncLyricsWithElapsed(currentElapsed);
             }
-
-            updateActiveLyric(activeIndex);
-        });
+        }, 500);
 
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.search-container')) {
