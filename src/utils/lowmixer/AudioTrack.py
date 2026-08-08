@@ -56,6 +56,7 @@ class AudioTrack:
         self._hook_triggered = False
         self._end_hook_triggered = False
         print(f"[AudioTrack] Дорожка '{self.name}': загружено {self.total_frames} сэмплов.")
+        if self.total_frames == 0: asyncio.create_task(self.hook_manager.trigger("track_ended", self.name))
 
     def append_pcm_bytes(self, raw_bytes: bytes):
         new_samples = np.frombuffer(raw_bytes, dtype=np.int16)

@@ -288,6 +288,12 @@ class LowWavePlayerService:
         return await asyncio.to_thread(self._download_track_sync, video_id)
 
     def _download_track_sync(self, video_id: str) -> Optional[str]:
+        for ext in ['webm', 'm4a', 'mp3', 'opus', 'ogg']:
+            cached_file = os.path.join(self.cache_dir, f"{video_id}.{ext}")
+            if os.path.exists(cached_file):
+                print(f"[PlayerService] Файл {video_id} найден в кэше: {cached_file}")
+                return cached_file
+
         output_template = os.path.join(self.cache_dir, f"{video_id}.%(ext)s")
         ydl_opts = {
             'format': 'bestaudio/best',

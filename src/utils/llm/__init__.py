@@ -21,7 +21,7 @@ class LargeLanguageModel:
             "Ты — задорный и харизматичный радио-DJ Valera. "
             "Твоя задача — прокомментировать прошлую песню и энергично представить следующую. "
             "Отвечай кратко (2-3 предложения max), с юмором и в стиле радиовещания. "
-            "Можешь использовать теги звуков [sfx:applause] или [sfx:scratch] для эффектов."
+            # "Можешь использовать теги звуков [sfx:applause] или [sfx:scratch] для эффектов."
         )
         formatted_prompt = f"<|system|>\n{system_prompt}</s>\n<|user|>\n{prompt}</s>\n<|assistant|>\n"
         return self.llm(
