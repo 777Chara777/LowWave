@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LowWave 📻 | Radio</title>
+    <style>
+        :root {
+            --bg-color: #e8e4dc;
+            --card-bg: #f4f0e8;
+            --border-color: #d3cdc2;
+            --text-main: #2c2a29;
+            --text-dim: #7a756d;
+            --accent-red: #d94e33;
+            --accent-dark: #1a1918;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 10px;
+        }
+
+        .window-frame {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            width: 100%;
+            max-width: 800px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+
+        .stations-bar {
+            background: #ded9cd;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        .station-tab {
+            padding: 10px 16px;
+            color: var(--text-dim);
+            border-right: 1px solid var(--border-color);
+            cursor: pointer;
+        }
+
+        .station-tab.active {
+            background: var(--card-bg);
+            color: var(--text-main);
+            font-weight: bold;
+            border-top: 2px solid var(--accent-red);
+        }
+
+        .browser-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 16px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 11px;
+            color: var(--text-dim);
+        }
+
+        .browser-dots {
+            display: flex;
+            gap: 6px;
+        }
+
+        .browser-dots span {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ccc;
+        }
+
+        .url-box {
+            background: #eae6db;
+            padding: 3px 16px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .live-indicator {
+            color: var(--accent-red);
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .live-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--accent-red);
+            border-radius: 50%;
+        }
+
+        .player-body {
+            padding: 24px;
+            position: relative;
+        }
+
+        .meta-header {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            color: var(--text-dim);
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .meta-header span {
+            color: var(--accent-red);
+        }
+
+        .main-content {
+            display: flex;
+            gap: 24px;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .album-art {
+            width: 180px;
+            height: 180px;
+            background: #dcd7cd;
+            border: 1px solid var(--border-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 13px;
+            color: var(--text-dim);
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .track-details h1 {
+            font-family: Georgia, serif;
+            font-size: 32px;
+            font-weight: normal;
+            margin-bottom: 8px;
+            color: var(--text-main);
+            word-break: break-word;
+        }
+
+        .track-details p {
+            font-size: 13px;
+            color: var(--text-dim);
+            margin-bottom: 12px;
+        }
+
+        .tags {
+            display: flex;
+            gap: 8px;
+            font-size: 11px;
+            color: #555;
+            flex-wrap: wrap;
+        }
+
+        .dj-commentary {
+            font-size: 12px;
+            color: var(--text-dim);
+            font-style: italic;
+            margin-bottom: 30px;
+            border-left: 2px solid var(--accent-red);
+            padding-left: 10px;
+        }
+
+        .timeline-container {
+            margin-bottom: 20px;
+        }
+
+        .timeline-bars {
+            display: flex;
+            gap: 2px;
+            align-items: flex-end;
+            height: 24px;
+            margin-bottom: 6px;
+        }
+
+        .bar {
+            flex: 1;
+            background: #d0cbc1;
+            height: 100%;
+            transition: background 0.2s;
+        }
+
+        .bar.played {
+            background: var(--accent-red);
+        }
+
+        .bottom-panel {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 16px;
+            font-size: 11px;
+            color: var(--text-dim);
+        }
+
+        .controls-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .volume-control input[type="range"] {
+            width: 80px;
+            accent-color: var(--accent-red);
+            cursor: pointer;
+        }
+
+        .power-btn {
+            background: none;
+            border: 1px solid var(--border-color);
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .request-input-group {
+            display: flex;
+            gap: 6px;
+        }
+
+        input[type="text"] {
+            background: #fff;
+            border: 1px solid var(--border-color);
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 11px;
+            width: 200px;
+        }
+
+        button.submit-btn {
+            background: var(--accent-red);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        @media (max-width: 650px) {
+            .player-body {
+                padding: 16px;
+            }
+
+            .main-content {
+                flex-direction: column;
+                text-align: center;
+                gap: 16px;
+            }
+
+            .album-art {
+                width: 140px;
+                height: 140px;
+            }
+
+            .track-details h1 {
+                font-size: 22px;
+            }
+
+            .tags {
+                justify-content: center;
+            }
+
+            .bottom-panel {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .controls-left {
+                justify-content: space-between;
+                width: 100%;
+            }
+
+            .request-input-group {
+                width: 100%;
+            }
+
+            .request-input-group input[type="text"] {
+                flex: 1;
+                width: auto;
+            }
+
+            .browser-bar .url-box {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="window-frame">
+        <div class="stations-bar">
+            <div class="station-tab active">● LOWWAVE</div>
+            <div class="station-tab">2618 HOME RADIO</div>
+            <div class="station-tab">CHILL LOUNGE</div>
+            <div class="station-tab">SYNTHWAVE FM</div>
+        </div>
+
+        <div class="browser-bar">
+            <div class="browser-dots">
+                <span></span><span></span><span></span>
+            </div>
+            <div class="url-box">https://lowwave.local/listen</div>
+            <div class="live-indicator">
+                <div class="live-dot"></div> LIVE
+            </div>
+        </div>
+
+        <div class="player-body">
+            <div class="meta-header">
+                LOW/WAVE &bull; <span id="current-genre">CHILLOUT</span> &bull; <span id="current-vibe">SUSTAINED ENERGY</span> &bull; <span id="telemetry-weather">21° СОЛНЦЕ</span>
+            </div>
+
+            <div class="main-content">
+                <div class="album-art" id="album-art-box">
+                    <span>COVER</span>
+                </div>
+                <div class="track-details">
+                    <h1 id="track-title">Загрузка эфира...</h1>
+                    <p id="artist-name">Ожидание подключения</p>
+                    <div class="tags" id="track-tags">
+                        <span>#ambient</span> <span>#lofi</span> <span>#local</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dj-commentary" id="dj-text">
+                «Инициализируем локальные волны, загружаем плейлист...»
+            </div>
+
+            <div class="timeline-container">
+                <div class="timeline-bars" id="timeline-bars"></div>
+            </div>
+
+            <div class="bottom-panel">
+                <div class="controls-left">
+                    <button class="power-btn" id="play-btn" onclick="toggleAudio()">▶ ВКЛЮЧИТЬ ЭФИР</button>
+                    <button class="power-btn" onclick="toggleLike()"><span id="like-icon">♡</span> Избранное</button>
+                    
+                    <div class="volume-control">
+                        <span>🔊</span>
+                        <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="1" oninput="changeVolume(this.value)">
+                    </div>
+                </div>
+                
+                <div class="request-input-group">
+                    <input type="text" id="song-input" placeholder="Заказать трек (Video ID)...">
+                    <button class="submit-btn" onclick="sendRequest()">Заказ</button>
+                </div>
+            </div>
+
+            <audio id="radio-player" preload="none"></audio>
+        </div>
+    </div>
+
+    <script>
+        let ws;
+        let isLiked = false;
+        let isPlaying = false;
+        let reconnectInterval = null;
+
+        const player = document.getElementById('radio-player');
+        const playBtn = document.getElementById('play-btn');
+        const volumeSlider = document.getElementById('volume-slider');
+
+        const savedVolume = localStorage.getItem('lowwave_volume');
+        if (savedVolume !== null) {
+            player.volume = parseFloat(savedVolume);
+            volumeSlider.value = savedVolume;
+        }
+
+        function changeVolume(val) {
+            player.volume = parseFloat(val);
+            localStorage.setItem('lowwave_volume', val);
+        }
+
+        function toggleAudio() {
+            if (!isPlaying) {
+                startStream();
+            } else {
+                stopStream();
+            }
+        }
+
+        function startStream() {
+            player.src = "/stream?" + Date.now();
+            player.play().then(() => {
+                isPlaying = true;
+                playBtn.innerText = "⏸ ОСТАНОВИТЬ ЭФИР";
+                playBtn.style.background = "var(--accent-red)";
+                playBtn.style.color = "#fff";
+                
+                if (reconnectInterval) {
+                    clearInterval(reconnectInterval);
+                    reconnectInterval = null;
+                }
+            }).catch(err => {
+                console.error("Ошибка воспроизведения:", err);
+                scheduleReconnect();
+            });
+        }
+
+        function stopStream() {
+            player.pause();
+            player.src = ""; 
+            isPlaying = false;
+            playBtn.innerText = "▶ ВКЛЮЧИТЬ ЭФИР";
+            playBtn.style.background = "none";
+            playBtn.style.color = "var(--text-main)";
+
+            if (reconnectInterval) {
+                clearInterval(reconnectInterval);
+                reconnectInterval = null;
+            }
+        }
+
+        function scheduleReconnect() {
+            if (!isPlaying || reconnectInterval) return;
+
+            console.warn("Потеряно соединение с потоком. Попытка переподключения...");
+            reconnectInterval = setInterval(() => {
+                if (isPlaying) {
+                    player.src = "/stream?" + Date.now();
+                    player.play().then(() => {
+                        console.log("Соединение с эфиром восстановлено!");
+                        clearInterval(reconnectInterval);
+                        reconnectInterval = null;
+                    }).catch(() => {
+                        console.warn("Попытка возобновить поток не удалась, повтор через 3 сек...");
+                    });
+                }
+            }, 3000);
+        }
+
+        player.onerror = function() {
+            scheduleReconnect();
+        };
+
+        function initTimeline() {
+            const container = document.getElementById('timeline-bars');
+            container.innerHTML = '';
+            for (let i = 0; i < 60; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'bar' + (i < 20 ? ' played' : '');
+                container.appendChild(bar);
+            }
+        }
+
+        function connectWebSocket() {
+            const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${proto}//${window.location.host}/ws`);
+
+            ws.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    updateUI(data);
+                } catch (e) {
+                    console.error("Ошибка парсинга:", e);
+                }
+            };
+
+            ws.onclose = function() {
+                setTimeout(connectWebSocket, 3000);
+            };
+        }
+
+        function updateUI(data) {
+            if (data.track) {
+                document.getElementById('track-title').innerText = data.track.title || "Трек";
+                document.getElementById('artist-name').innerText = data.track.artist || "Исполнитель";
+                
+                const artBox = document.getElementById('album-art-box');
+                if (data.track.cover_url) {
+                    artBox.innerHTML = `<img src="${data.track.cover_url}" style="width:100%; height:100%; object-fit:cover; border-radius:4px;">`;
+                } else {
+                    artBox.innerHTML = `<span>COVER</span>`;
+                }
+
+                isLiked = data.track.liked || false;
+                updateLikeUI();
+            }
+            const message = data.dj_comment ?? data.llm_message;
+            if (message?.trim()) {
+                document.getElementById('dj-text').innerText = `«${message}»`;
+            }
+            if (data.telemetry && data.telemetry.weather) {
+                document.getElementById('telemetry-weather').innerText = data.telemetry.weather;
+            }
+        }
+
+        function toggleLike() {
+            isLiked = !isLiked;
+            updateLikeUI();
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ action: 'like', liked: isLiked }));
+            }
+        }
+
+        function updateLikeUI() {
+            document.getElementById('like-icon').innerText = isLiked ? '♥' : '♡';
+        }
+
+        function sendRequest() {
+            const input = document.getElementById('song-input');
+            const song = input.value.trim();
+            if (!song) return;
+
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ action: 'request', song: song }));
+                input.value = '';
+                alert('Заказ отправлен в очередь LowWave!');
+            }
+        }
+
+        window.onload = function() {
+            initTimeline();
+            connectWebSocket();
+        };
+    </script>
+</body>
+</html>

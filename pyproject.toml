@@ -1,0 +1,24 @@
+[project]
+name = "lowwave"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "av>=18.0.0",
+    "edge-tts>=7.2.8",
+    "fastapi>=0.141.1",
+    "ffmpeg>=1.4",
+    "llama-cpp-python>=0.3.34",
+    "python-dotenv>=1.2.2",
+    "torch>=2.13.0",
+    "torchaudio>=2.11.0",
+    "uvicorn[standard]>=0.52.1",
+    "yt-dlp>=2026.7.4",
+    "ytmusicapi>=1.12.1",
+]
+
+[[tool.uv.index]]
+name = "llama-cpp-python-cu124"
+url = "https://abetlen.github.io/llama-cpp-python/whl/cu124"
+explicit = true
