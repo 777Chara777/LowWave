@@ -40,6 +40,61 @@ class LowWavePlayerService:
             "thumbnails": song.get("thumbnails", [])
         }
 
+    def search_tracks(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """
+        Поиск нескольких треков по запросу для выпадающего списка WebSocket.
+        """
+        try:
+            results = self.yt.search(query, filter="songs", limit=limit)
+            if not results:
+                return []
+
+            formatted = []
+            for song in results:
+                artists_raw = song.get("artists", [])
+                artists_str = ", ".join([a["name"] for a in artists_raw]) if isinstance(artists_raw, list) else "Неизвестен"
+                
+                formatted.append({
+                    "id": song.get("videoId"),
+                    "title": song.get("title", "Без названия"),
+                    "artist": artists_str
+                })
+            return formatted
+        except Exception as e:
+            print(f"[PlayerService] Ошибка поиска: {e}")
+            return []
+
+    def get_track_lyrics(self, video_id: str) -> List[Dict[str, Any]]:
+        """Получение текста песни с таймкодами"""
+        try:
+            watch_playlist = self.yt.get_watch_playlist(videoId=video_id)
+            lyrics_id = watch_playlist.get("lyrics")
+            if not lyrics_id:
+                return [{"time": 0, "text": "Текст песни не найден"}]
+
+            lyrics_data = self.yt.get_lyrics(lyrics_id, timestamps=True)  # type: ignore
+            raw_lyrics = lyrics_data.get("lyrics", "")
+
+            if isinstance(raw_lyrics, list):
+                result = []
+                for item in raw_lyrics:
+                    ms = item.get("start_time") or item.get("timestamp") or 0
+                    text = item.get("text", "").strip()
+                    if text:
+                        result.append({"time": float(ms) / 1000.0, "text": text})
+                return result if result else [{"time": 0, "text": "Текст песни пуст"}]
+
+            if isinstance(raw_lyrics, str):
+                lines = [line.strip() for line in raw_lyrics.split("\n") if line.strip()]
+                return [{"time": i * 4.0, "text": line} for i, line in enumerate(lines)]
+
+            return [{"time": 0, "text": "Неизвестный формат текста"}]
+
+        except Exception as e:
+            print(f"[PlayerService] Ошибка получения текста: {e}")
+            return [{"time": 0, "text": "Не удалось загрузить текст"}]
+        
+
     def get_playlist_tracks(self, playlist_id: str, limit: int = 20):
         """
         Получение списка треков из плейлиста пользователя по его ID.
@@ -82,7 +137,6 @@ class LowWavePlayerService:
         """Получение подробных метаданных трека и обложки по его video_id"""
         json_path = os.path.join(self.cache_dir, f"{video_id}.json")
 
-        # 1. Если метаданные уже сбережены в JSON-кэше, читаем их локально
         if os.path.exists(json_path):
             try:
                 with open(json_path, "r", encoding="utf-8") as f:
@@ -94,7 +148,6 @@ class LowWavePlayerService:
             song = self.yt.get_song(video_id)
             video_details = song.get("videoDetails", {})
             
-            # Берем обложку с максимальным разрешением
             thumbnails = video_details.get("thumbnail", {}).get("thumbnails", [])
             cover_url = thumbnails[-1]["url"] if thumbnails else None
 
@@ -105,7 +158,6 @@ class LowWavePlayerService:
                 "cover_url": cover_url
             }
 
-            # Сохраняем полученные из сети данные в JSON
             self.save_metadata_to_json(video_id, meta)
             return meta
         except Exception as e:

@@ -36,6 +36,7 @@ class LowWaveManager:
         self.webwave.set_control(self.control)
 
         self.music_track.hook_manager.subscribe("track_ended", self.handle_track_ended)
+        self.music_track.hook_manager.subscribe("track_near_end", self.handle_track_near_end)
 
         self.sfx_cache: dict[str, bytes] = {}
         self._llm_task: asyncio.Task | None = None
@@ -56,7 +57,7 @@ class LowWaveManager:
         if track_name == "music_track":
             print("[ДИРИЖЕР] Музыка закончилась. Передаем слово ведущему...")
 
-            await self.control.prepare_next_track()
+            # await self.control.prepare_next_track()
             
             await self._generate_llm_speech()
 
@@ -66,6 +67,11 @@ class LowWaveManager:
             print("[ДИРИЖЕР] Голос завершил эфир. Запускаем следующий трек...")
             
             await self.control.play_prepared_track()
+
+    async def handle_track_near_end(self, track_name: str):
+        if track_name == "music_track":
+            print("[ДИРИЖЕР] Музыка заканчивается. Начинаем загружать след песню...")
+            await self.control.prepare_next_track()
 
     async def _generate_llm_speech(self):
         print("[DJ VALERA] Ведущий вышел в эфир...")

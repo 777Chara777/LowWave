@@ -129,10 +129,25 @@ class WebWave:
                 while True:
                     data = await websocket.receive_json()
                     action = data.get("action")
-
-                    if action == "request" and self.control:
-                        song_id = data.get("song")
+                    if action == "search" and self.control:
+                        query = data.get("query")
+                        results = []
+                        if hasattr(self.control, "search_tracks"):
+                            results = await self.control.search_tracks(query)
+                        
+                        await websocket.send_json({
+                            "search_results": results
+                        })
+                    
+                    elif action == "request" and self.control:
+                        song_id = data.get("song_id")
                         await self.control.add_to_queue(song_id)
+                        await self.broadcast_status()
+
+                    elif action == "load_playlist" and self.control:
+                        url = data.get("url")
+                        if hasattr(self.control, "load_playlist"):
+                            await self.control.load_playlist(url)
                         await self.broadcast_status()
 
                     elif action == "like" and self.control:

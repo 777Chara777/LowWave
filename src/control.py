@@ -1,14 +1,17 @@
 # src/control.py
 import asyncio
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, TYPE_CHECKING
 
 import os
 import random
 import numpy as np
 
+if TYPE_CHECKING:
+    from . import LowWaveManager
+
 class LowWaveControl:
     def __init__(self, manager) -> None:
-        self.manager = manager
+        self.manager: "LowWaveManager" = manager
         self.playlist_queue: List[str] = []
 
         self.previous_track_info: Optional[Dict[str, Any]] = None
@@ -16,7 +19,8 @@ class LowWaveControl:
             "title": "Ожидание трека...",
             "artist": "LowWave Radio",
             "video_id": None,
-            "liked": False
+            "liked": False,
+            "lyrics": []
         }
         self.next_track_info: Optional[Dict[str, Any]] = None
         self.next_pcm_data: Optional[np.ndarray] = None
@@ -38,14 +42,18 @@ class LowWaveControl:
             next_id = random.choice(files) if files else "default_id"
 
         player_service = self.manager.player_service
+        
+        # Вызываем сетевые запросы асинхронно через asyncio.to_thread
         meta = await asyncio.to_thread(player_service.get_track_info, next_id)
+        lyrics = await asyncio.to_thread(player_service.get_track_lyrics, next_id)
         
         self.next_track_info = {
             "video_id": next_id,
             "title": meta.get("title", "Unknown Title"),
             "artist": meta.get("artist", "Unknown Artist"),
             "cover_url": meta.get("cover_url", ""),
-            "liked": False
+            "liked": False,
+            "lyrics": lyrics
         }
 
         self.next_pcm_data = await self.manager.load_track(next_id)
@@ -74,10 +82,12 @@ class LowWaveControl:
     def get_status(self) -> Dict[str, Any]:
         return {
             "track": self.get_track_info(),
-            "dj_comment": self.dj_comment,
+            "next_track": self.get_next_track_info(),
+            "dj_comment": self.dj_comment if self.manager.llm.message == "" else self.manager.llm.message,
             "queue_length": len(self.playlist_queue),
             "telemetry": {"weather": "21° СОЛНЦЕ"},
-            "llm_message": self.manager.llm.message
+            # "llm_message": self.manager.llm.message,
+            "lyrics": self.current_track_info.get("lyrics", ["Текст отсутствует"])
         }
 
     def get_previous_track_info(self) -> Optional[Dict[str, Any]]:
@@ -88,3 +98,9 @@ class LowWaveControl:
 
     def get_track_info(self) -> Dict[str, Any]:
         return self.current_track_info
+
+    async def search_tracks(self, query: str) -> List[Dict[str, Any]]:
+        """Поиск треков через PlayerService для выдачи списком на фронтенд"""
+        if not query:
+            return []
+        return await asyncio.to_thread(self.manager.player_service.search_tracks, query)
